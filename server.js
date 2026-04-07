@@ -1,10 +1,42 @@
 const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
 const cors = require('cors');
+const mongoose = require('mongoose');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// MongoDB connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://yashagarwal0551_db_user:awCndOO6NockdNot@cluster0.tezdvrf.mongodb.net/supply-store?retryWrites=true&w=majority&appName=Cluster0';
+
+mongoose.connect(MONGODB_URI)
+    .then(() => console.log('Connected to MongoDB Atlas'))
+    .catch(err => console.error('MongoDB connection error:', err));
+
+// Mongoose Schemas
+const enquirySchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    email: { type: String, required: true },
+    phone: { type: String, required: true },
+    company: String,
+    interest: String,
+    message: String,
+    submittedAt: { type: Date, default: Date.now }
+});
+
+const dealershipSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    email: { type: String, required: true },
+    phone: { type: String, required: true },
+    businessName: String,
+    location: String,
+    experience: String,
+    investment: String,
+    message: String,
+    submittedAt: { type: Date, default: Date.now }
+});
+
+const Enquiry = mongoose.model('Enquiry', enquirySchema);
+const Dealership = mongoose.model('Dealership', dealershipSchema);
 
 // Enhanced CORS configuration
 app.use(cors({
@@ -19,99 +51,30 @@ app.options('*', cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Data directory
-const DATA_DIR = path.join(__dirname, 'data');
-
-// Ensure data directory exists
-async function ensureDataDir() {
-    try {
-        await fs.access(DATA_DIR);
-    } catch {
-        await fs.mkdir(DATA_DIR, { recursive: true });
-    }
-}
-
-// Initialize data files
-async function initializeDataFiles() {
-    await ensureDataDir();
-    
-    const files = ['enquiries.json', 'dealerships.json'];
-    
-    for (const file of files) {
-        const filePath = path.join(DATA_DIR, file);
-        try {
-            await fs.access(filePath);
-        } catch {
-            await fs.writeFile(filePath, JSON.stringify([], null, 2));
-        }
-    }
-}
-
-// Read data from file
-async function readData(filename) {
-    try {
-        const filePath = path.join(DATA_DIR, filename);
-        const data = await fs.readFile(filePath, 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error(`Error reading ${filename}:`, error);
-        return [];
-    }
-}
-
-// Write data to file
-async function writeData(filename, data) {
-    try {
-        const filePath = path.join(DATA_DIR, filename);
-        await fs.writeFile(filePath, JSON.stringify(data, null, 2));
-        return true;
-    } catch (error) {
-        console.error(`Error writing to ${filename}:`, error);
-        return false;
-    }
-}
-
 // API Routes
 
 // Submit enquiry form
 app.post('/api/submit-enquiry', async (req, res) => {
     try {
         console.log('Received enquiry:', req.body);
-        
-        const enquiryData = req.body;
-        
-        // Validate required fields
-        if (!enquiryData.name || !enquiryData.email || !enquiryData.phone) {
-            console.error('Missing required fields');
+
+        const { name, email, phone } = req.body;
+
+        if (!name || !email || !phone) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        
-        // Read existing data
-        const existingData = await readData('enquiries.json');
-        
-        // Add new submission
-        const newEnquiry = {
-            id: Date.now().toString(),
-            ...enquiryData,
-            submittedAt: new Date().toISOString()
-        };
-        
-        existingData.push(newEnquiry);
-        
-        // Save updated data
-        const success = await writeData('enquiries.json', existingData);
-        
-        if (success) {
-            console.log('Enquiry saved successfully:', newEnquiry.id);
-            res.json({ 
-                success: true, 
-                message: 'Enquiry submitted successfully. We will contact you within 24 hours.', 
-                id: newEnquiry.id 
-            });
-        } else {
-            console.error('Failed to save enquiry');
-            res.status(500).json({ error: 'Failed to save enquiry' });
-        }
+
+        const newEnquiry = await Enquiry.create({
+            ...req.body,
+            submittedAt: new Date()
+        });
+
+        console.log('Enquiry saved successfully:', newEnquiry._id);
+        res.json({
+            success: true,
+            message: 'Enquiry submitted successfully. We will contact you within 24 hours.',
+            id: newEnquiry._id
+        });
     } catch (error) {
         console.error('Error processing enquiry:', error);
         res.status(500).json({ error: 'Internal server error', details: error.message });
@@ -122,41 +85,24 @@ app.post('/api/submit-enquiry', async (req, res) => {
 app.post('/api/submit-dealership', async (req, res) => {
     try {
         console.log('Received dealership application:', req.body);
-        
-        const dealershipData = req.body;
-        
-        // Validate required fields
-        if (!dealershipData.name || !dealershipData.email || !dealershipData.phone) {
-            console.error('Missing required fields');
+
+        const { name, email, phone } = req.body;
+
+        if (!name || !email || !phone) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        
-        // Read existing data
-        const existingData = await readData('dealerships.json');
-        
-        // Add new submission
-        const newApplication = {
-            id: Date.now().toString(),
-            ...dealershipData,
-            submittedAt: new Date().toISOString()
-        };
-        
-        existingData.push(newApplication);
-        
-        // Save updated data
-        const success = await writeData('dealerships.json', existingData);
-        
-        if (success) {
-            console.log('Dealership application saved successfully:', newApplication.id);
-            res.json({ 
-                success: true, 
-                message: 'Dealership application submitted successfully. Our team will review and contact you soon.', 
-                id: newApplication.id 
-            });
-        } else {
-            console.error('Failed to save dealership application');
-            res.status(500).json({ error: 'Failed to save application' });
-        }
+
+        const newApplication = await Dealership.create({
+            ...req.body,
+            submittedAt: new Date()
+        });
+
+        console.log('Dealership application saved:', newApplication._id);
+        res.json({
+            success: true,
+            message: 'Dealership application submitted successfully. Our team will review and contact you soon.',
+            id: newApplication._id
+        });
     } catch (error) {
         console.error('Error processing dealership application:', error);
         res.status(500).json({ error: 'Internal server error', details: error.message });
@@ -166,7 +112,7 @@ app.post('/api/submit-dealership', async (req, res) => {
 // Get all enquiries
 app.get('/api/enquiries', async (req, res) => {
     try {
-        const enquiries = await readData('enquiries.json');
+        const enquiries = await Enquiry.find().sort({ submittedAt: -1 });
         res.json(enquiries);
     } catch (error) {
         console.error('Error fetching enquiries:', error);
@@ -177,7 +123,7 @@ app.get('/api/enquiries', async (req, res) => {
 // Get all dealership applications
 app.get('/api/dealerships', async (req, res) => {
     try {
-        const dealerships = await readData('dealerships.json');
+        const dealerships = await Dealership.find().sort({ submittedAt: -1 });
         res.json(dealerships);
     } catch (error) {
         console.error('Error fetching dealerships:', error);
@@ -187,18 +133,20 @@ app.get('/api/dealerships', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: 'ok', 
+    res.json({
+        status: 'ok',
         timestamp: new Date().toISOString(),
-        service: 'The Supply Store Backend'
+        service: 'The Supply Store Backend',
+        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
     });
 });
 
 // Root endpoint
 app.get('/', (req, res) => {
-    res.json({ 
+    res.json({
         message: 'The Supply Store Backend API',
         service: 'Paint Distributor Enquiry System',
+        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
         endpoints: {
             health: '/api/health',
             submitEnquiry: 'POST /api/submit-enquiry',
@@ -214,18 +162,15 @@ app.use((req, res) => {
     res.status(404).json({ error: 'Not Found', path: req.path });
 });
 
-// Initialize and start server
-async function startServer() {
-    await initializeDataFiles();
-    
-    app.listen(PORT, () => {
-        console.log(`
+// Start server
+app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════════════╗
 ║  The Supply Store Backend Running     ║
 ╠════════════════════════════════════════╣
 ║  Port: ${PORT}                           ║
 ║  Status: ✓ Ready                      ║
-║  Data Directory: ./data                ║
+║  Database: MongoDB Atlas               ║
 ╠════════════════════════════════════════╣
 ║  Endpoints:                            ║
 ║  POST /api/submit-enquiry              ║
@@ -234,10 +179,7 @@ async function startServer() {
 ║  GET  /api/dealerships                 ║
 ║  GET  /api/health                      ║
 ╚════════════════════════════════════════╝
-        `);
-    });
-}
-
-startServer().catch(console.error);
+    `);
+});
 
 module.exports = app;
