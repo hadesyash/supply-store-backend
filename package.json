@@ -11,8 +11,10 @@
   "author": "The Supply Store",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
     "mongoose": "^8.2.0"
   },
   "devDependencies": {
