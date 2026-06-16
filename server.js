@@ -6,7 +6,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://yashagarwal0551_db_user:awCndOO6NockdNot@cluster0.tezdvrf.mongodb.net/supply-store?retryWrites=true&w=majority&appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+    console.error('MONGODB_URI environment variable is not set. Exiting.');
+    process.exit(1);
+}
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('Connected to MongoDB Atlas'))
