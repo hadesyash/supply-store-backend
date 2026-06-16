@@ -50,13 +50,25 @@ app.use(helmet());
 app.use(cors({
     origin: ['https://thesupplystore.co.in', 'https://www.thesupplystore.co.in'],
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type']
+    allowedHeaders: ['Content-Type', 'x-api-key']
 }));
 
 app.options('*', cors());
 
 app.use(express.json({ limit: '10kb' }));
 app.use(express.static('public'));
+
+// API key middleware for admin endpoints
+function requireApiKey(req, res, next) {
+    const apiKey = req.headers['x-api-key'];
+    if (!process.env.ADMIN_API_KEY) {
+        return res.status(500).json({ error: 'Server misconfigured' });
+    }
+    if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+}
 
 // Rate limiting
 const formLimiter = rateLimit({
@@ -124,7 +136,7 @@ app.post('/api/submit-dealership', formLimiter, async (req, res) => {
 });
 
 // Get all enquiries
-app.get('/api/enquiries', readLimiter, async (req, res) => {
+app.get('/api/enquiries', requireApiKey, readLimiter, async (req, res) => {
     try {
         const enquiries = await Enquiry.find().sort({ submittedAt: -1 });
         res.json(enquiries);
@@ -135,7 +147,7 @@ app.get('/api/enquiries', readLimiter, async (req, res) => {
 });
 
 // Get all dealership applications
-app.get('/api/dealerships', readLimiter, async (req, res) => {
+app.get('/api/dealerships', requireApiKey, readLimiter, async (req, res) => {
     try {
         const dealerships = await Dealership.find().sort({ submittedAt: -1 });
         res.json(dealerships);
