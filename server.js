@@ -56,7 +56,6 @@ app.use(cors({
 app.options('*', cors());
 
 app.use(express.json({ limit: '10kb' }));
-app.use(express.static('public'));
 
 // API key middleware for admin endpoints
 function requireApiKey(req, res, next) {
